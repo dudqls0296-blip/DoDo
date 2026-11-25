@@ -356,10 +356,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
               <button type="button" className="dock__btn" onClick={next} aria-label="다음 곡" title="다음 곡" tabIndex={on ? 0 : -1}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l9 6-9 6zM16 6h2v12h-2z" /></svg>
               </button>
- <button type="button" className="dock__btn dock__btn--pip" onClick={() => (pip ? closePip() : openPip())} aria-label={pip ? 'PIP 닫기' : 'PIP로 띄우기'} title={pip ? 'PIP 닫기' : '화면 구석 PIP 창으로 띄우기'} tabIndex={on ? 0 : -1}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="2" /><rect x="12" y="11" width="7" height="6" rx="1" /></svg>
-              </button>
-              <button type="button" className="dock__btn dock__btn--yt" onClick={openOnYouTube} aria-label="YouTube에서 열기" title="YouTube에서 열기 (광고 건너뛰기가 안 될 때)" tabIndex={on ? 0 : -1}>
+<button type="button" className="dock__btn dock__btn--yt" onClick={openOnYouTube} aria-label="YouTube에서 열기" title="YouTube에서 열기 (광고 건너뛰기가 안 될 때)" tabIndex={on ? 0 : -1}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h14v-5M13 4h7v7M20 4l-9 9" fill="none" stroke="currentColor" strokeWidth="2" /></svg>
               </button>
               <button type="button" className="dock__btn dock__btn--off" onClick={() => setOn(false)} aria-label="음악 끄기" title="음악 끄기" tabIndex={on ? 0 : -1}>
@@ -405,12 +402,6 @@ export function SongButtons({ song, linkOnly = false, size = 'lg' }: { song: Son
           ) : (
             <><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg> {isCur ? '이어 듣기' : '여기서 듣기'}</>
           )}
-        </button>
-      )}
-      {!linkOnly && isCur && !loading && !m.pip && (
-        <button type="button" className={`btn btn--line-dark ${cls}`} onClick={async () => setMsg((await m.openPip()) || '')}>
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="btn__ext"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="2" /><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor" /></svg>
-          PIP로 띄우기
         </button>
       )}
       <a className={`btn btn--line-dark ${cls}`} href={watchUrl(song)} target="_blank" rel="noopener noreferrer">

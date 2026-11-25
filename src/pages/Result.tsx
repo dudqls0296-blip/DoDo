@@ -183,7 +183,7 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <div className="yt">
                 {mode === 'embed' && <VideoSlot song={song} />}
                 <SongButtons song={song} linkOnly={mode !== 'embed'} />
-                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 화면을 내리거나 리포트로 넘어가도 화면 구석 플레이어로 이어져요. ‘PIP로 띄우기’를 누르면 다른 창 위에도 떠 있어요.</p>
+                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 화면을 내리거나 리포트로 넘어가도 화면 구석 플레이어로 이어져요.</p>
               </div>
               <div className="record__more">
                 <button type="button" className="btn btn--ghost-dark" onClick={another}>
