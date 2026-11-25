@@ -1175,3 +1175,19 @@ input[type='range']:focus-visible { outline: 2px solid var(--brass); outline-off
 .present.is-presenting .p-notes__head span { font-size: .8125rem; }
 /* 발표 중에는 사이트 토스트를 작게 */
 [data-fullscreen='on'] .toast { bottom: auto; top: 1rem; }
+
+/* ── 페이지 안 영상 자리(임베드) · PIP ── */
+.vslot { position: relative; aspect-ratio: 16 / 9; min-height: 200px; margin-bottom: 1rem; border-radius: .375rem; overflow: hidden; background: #000; box-shadow: 0 0 0 1px rgba(184,154,99,.45), 0 1.5rem 3rem -1.5rem rgba(0,0,0,.8); }
+.vslot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .72; }
+.vslot__play { position: absolute; inset: 0; margin: auto; width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #e1c992, #b89a63 55%, #8e7448); color: var(--forest); box-shadow: 0 .75rem 2rem -.5rem rgba(0,0,0,.8); transition: transform .2s var(--ease); }
+.vslot__play:hover { transform: scale(1.06); }
+.vslot__play svg { width: 1.75rem; height: 1.75rem; fill: currentColor; margin-left: .2rem; }
+.vslot__cover { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .875rem; padding: 1rem; text-align: center; color: #EDE5D3; background: rgba(10,16,14,.82); font-size: .9375rem; }
+.s-music__video { width: 356px; max-width: 100%; }
+.s-music__video .vslot { margin-bottom: .6rem; }
+.song-btns__msg { flex-basis: 100%; margin: 0; font-size: .8125rem; line-height: 1.6; color: var(--sage-mute); }
+.dock.is-inline { right: auto; bottom: auto; transform: none; border-radius: .375rem; box-shadow: none; transition: none; z-index: 15; }
+.dock.is-inline .dock__bar, .dock.is-inline .dock__hint { display: none; }
+.dock.is-inline .dock__video { aspect-ratio: auto; min-height: 0; }
+.dock__cover--pip { pointer-events: auto; flex-direction: column; gap: .75rem; text-align: center; color: #EDE5D3; }
+.dock__cover--pip .btn { min-height: 2.5rem; padding: 0 1rem; font-size: .875rem; }

@@ -8,7 +8,7 @@ import { formatDate, type Record_ } from '../lib/storage';
 import { reason } from '../lib/recommend';
 import { recInput } from './Result';
 import { Seal, FullscreenButton } from '../components/Header';
-import { MusicToggle, SongButtons, useMusic } from '../music/Music';
+import { MusicToggle, SongButtons, VideoSlot, useMusic } from '../music/Music';
 
 const TITLES = ['표지', '나의 이야기', '지금 마음의 요약', '오늘의 추천곡', '오늘의 한 걸음', '내 유형'];
 
@@ -70,7 +70,7 @@ function Slide({ i, rec, onType, thumb = false }: { i: number; rec: Record_; onT
             <h2 className="s-title">{song.title}</h2>
             <p className="s-music__meta">{song.artist} · {song.genre} · 공식 영상 {song.channel}</p>
             <p>{rec.reasons?.[song.id] ?? reason(song, recInput(rec), R.phrase)}</p>
-            {thumb ? <p className="s-music__guide">YouTube에서 듣기 ↗</p> : <div className="s-music__play"><SongButtons song={song} size="md" linkOnly={location.protocol === 'file:'} /></div>}
+            {thumb ? <p className="s-music__guide">YouTube에서 듣기 ↗</p> : <div className="s-music__play">{location.protocol !== 'file:' && <div className="s-music__video"><VideoSlot song={song} /></div>}<SongButtons song={song} size="md" linkOnly={location.protocol === 'file:'} /></div>}
             {!thumb && music.on && music.current && music.current.id !== song.id && <p className="s-music__now">지금 흐르는 곡 · {music.current.title}</p>}
           </div>
         </div>

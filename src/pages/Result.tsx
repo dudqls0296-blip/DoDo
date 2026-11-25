@@ -8,7 +8,7 @@ import { reason, recommend, seedOf, type RecInput } from '../lib/recommend';
 import { getServerInfo } from '../lib/conversation';
 import { Footer, Header } from '../components/Header';
 import Vinyl from '../vinyl/Vinyl';
-import { SongButtons, useMusic } from '../music/Music';
+import { SongButtons, VideoSlot, useMusic } from '../music/Music';
 
 type Availability = 'embed' | 'link' | 'search';
 import TypeQuiz from '../components/TypeQuiz';
@@ -143,8 +143,9 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="record__artist">{song.artist} <span>· {song.genre}</span></p>
               <p className="record__why">{why}</p>
               <div className="yt">
+                {mode === 'embed' && <VideoSlot song={song} />}
                 <SongButtons song={song} linkOnly={mode !== 'embed'} />
-                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 재생하면 화면 구석의 플레이어로 이어져요. 리포트를 보는 동안에도 끊기지 않아요.</p>
+                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 화면을 내리거나 리포트로 넘어가도 화면 구석 플레이어로 이어져요. ‘PIP로 띄우기’를 누르면 다른 창 위에도 떠 있어요.</p>
               </div>
               <div className="record__more">
                 <button type="button" className="btn btn--ghost-dark" onClick={another}>
