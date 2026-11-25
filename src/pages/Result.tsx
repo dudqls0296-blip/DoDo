@@ -79,56 +79,11 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
   const song = SONGS.find((s) => s.id === rec.songId)!;
   const music = useMusic();
   const [quiz, setQuiz] = useState(false);
-  const [isPip, setIsPip] = useState(false);
-  const pipWinRef = useRef<Window | null>(null);
   const mode = useAvailability(song);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const why = useMemo(() => rec.reasons?.[song.id] ?? reason(song, recInput(rec), R.phrase), [song.id, rec.type?.code, rec.reasons]);
   useEffect(() => { titleRef.current?.focus(); markShown(song.id); }, []);
   useEffect(() => { markShown(song.id); }, [song.id]);
-
-  const togglePip = async () => {
-    if (typeof window !== 'undefined' && 'documentPictureInPicture' in window) {
-      if (pipWinRef.current) {
-        pipWinRef.current.close();
-        pipWinRef.current = null;
-        setIsPip(false);
-        return;
-      }
-      try {
-        const pipWin = await (window as any).documentPictureInPicture.requestWindow({
-          width: 440,
-          height: 270,
-        });
-        pipWinRef.current = pipWin;
-        setIsPip(true);
-
-        const frame = pipWin.document.createElement('iframe');
-        frame.src = `https://www.youtube-nocookie.com/embed/${song.videoId}?autoplay=1&rel=0&playsinline=1`;
-        frame.title = `${song.title} - ${song.artist}`;
-        frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;background:#000;';
-        frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-        frame.allowFullscreen = true;
-        pipWin.document.body.style.margin = '0';
-        pipWin.document.body.style.background = '#000';
-        pipWin.document.body.appendChild(frame);
-
-        pipWin.addEventListener('pagehide', () => {
-          pipWinRef.current = null;
-          setIsPip(false);
-        });
-        return;
-      } catch (err) {
-        console.warn('Document Picture-in-Picture failed, activating dock player:', err);
-      }
-    }
-
-    if (music.isPlaying(song.id)) {
-      music.pause();
-    } else {
-      music.play(song);
-    }
-  };
 
   const another = () => {
     const next = recommend(recInput(rec, [song.id]));
@@ -188,27 +143,8 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="record__artist">{song.artist} <span>· {song.genre}</span></p>
               <p className="record__why">{why}</p>
               <div className="yt">
-                <div className="yt__frame is-on">
-                  <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${song.videoId}?rel=0&playsinline=1`}
-                    title={`${song.title} - ${song.artist}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                </div>
-                <div className="yt__actions" style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
-                  <button type="button" className="btn btn--sage" onClick={togglePip}>
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '6px' }} aria-hidden="true">
-                      <rect x="2" y="4" width="20" height="16" rx="2" />
-                      <rect x="12" y="10" width="8" height="7" rx="1" fill="currentColor" fillOpacity="0.35" />
-                    </svg>
-                    {isPip ? 'PIP 닫기' : '화면 구석 PIP로 띄우기'}
-                  </button>
-                  <a href={watchUrl(song)} target="_blank" rel="noopener noreferrer" className="btn btn--line">
-                    YouTube에서 열기 ↗
-                  </a>
-                </div>
-                <p className="yt__src" style={{ marginTop: '0.625rem' }}>공식 영상 · {song.channel} · 영상 위 우클릭 2번으로도 브라우저 PIP를 켤 수 있어요</p>
+                <SongButtons song={song} linkOnly={mode !== 'embed'} />
+                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 재생하면 화면 구석의 플레이어로 이어져요. 리포트를 보는 동안에도 끊기지 않아요.</p>
               </div>
               <div className="record__more">
                 <button type="button" className="btn btn--ghost-dark" onClick={another}>
@@ -260,16 +196,7 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
                     </p>
                   )}
                   {typeSong && (
-                    <div className="typecard__play">
-                      <div className="yt__frame is-on" style={{ marginTop: '0.75rem', maxWidth: '480px' }}>
-                        <iframe
-                          src={`https://www.youtube-nocookie.com/embed/${typeSong.videoId}?rel=0&playsinline=1`}
-                          title={`${typeSong.title} - ${typeSong.artist}`}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      </div>
-                    </div>
+                    <div className="typecard__play"><SongButtons song={typeSong} size="md" /></div>
                   )}
                   <button type="button" className="btn btn--text" onClick={() => setQuiz(true)}>다시 하기</button>
                 </div>
