@@ -70,7 +70,16 @@ function Slide({ i, rec, onType, thumb = false }: { i: number; rec: Record_; onT
             <h2 className="s-title">{song.title}</h2>
             <p className="s-music__meta">{song.artist} · {song.genre} · 공식 영상 {song.channel}</p>
             <p>{rec.reasons?.[song.id] ?? reason(song, recInput(rec), R.phrase)}</p>
-            {thumb ? <p className="s-music__guide">YouTube에서 듣기 ↗</p> : <div className="s-music__play"><SongButtons song={song} size="md" linkOnly={location.protocol === 'file:'} /></div>}
+            {thumb ? <p className="s-music__guide">YouTube 영상</p> : (
+              <div className="yt__frame is-on" style={{ marginTop: '1rem', maxWidth: '420px' }}>
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${song.videoId}?rel=0&playsinline=1`}
+                  title={`${song.title} - ${song.artist}`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            )}
             {!thumb && music.on && music.current && music.current.id !== song.id && <p className="s-music__now">지금 흐르는 곡 · {music.current.title}</p>}
           </div>
         </div>
