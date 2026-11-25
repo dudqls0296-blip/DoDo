@@ -14,7 +14,7 @@
 - 터미널에서는 `npm start`와 같습니다 (설치할 의존성 없음).
 - `index.html`을 더블클릭해도 열리지만(자동으로 `preview/`로 이동), 파일로 연 상태에서는 YouTube가 삽입 재생을 막아 ‘YouTube에서 듣기’로 열립니다.
 
-**공유 페이지(claude.ai 아티팩트)**에서는 API 키 없이 Claude가 바로 연결됩니다. 첫 질문을 보낼 때 한 번 허용을 묻습니다. 다만 공유 페이지의 보안 정책상 YouTube는 새 탭으로 열립니다.
+**GitHub Pages(https://dudqls0296-blip.github.io/DoDo/)**는 정적 호스팅이라 서버가 없습니다. 실제 AI 답변을 켜려면 아래 ‘GitHub Pages에서 AI 켜기’대로 서버리스 함수(Vercel)를 하나 배포하고 `preview/config.json`에 주소를 적습니다.
 
 개발 모드:
 
@@ -26,19 +26,35 @@ npm run build        # 타입 검사 + dist/ 빌드 → npm start 가 dist/ 를 
 npm run build:standalone   # preview/index.html 단일 파일 다시 만들기
 ```
 
-## AI · YouTube 설정 (선택)
+## AI 설정 (Google Gemini)
 
-`.env.example`을 `.env`로 복사하고 값을 넣으세요. 키는 서버에만 있고 브라우저로 내려가지 않습니다.
+AI는 **Google Gemini API**만 씁니다. 키는 서버 환경 변수에만 있고 브라우저로 내려가지 않습니다.
 
 | 변수 | 역할 | 없을 때 |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | AI 상담: 상황·마음에 걸리는 부분·원하는 도움 질문 생성, 결과 편지와 곡 선택, 답장 쓰기 | 카테고리·표현 기반 질문 풀과 규칙 기반 결과로 같은 흐름 진행 (답장 쓰기는 숨김) |
-| `ANTHROPIC_MODEL` | 사용할 모델 (기본 `claude-sonnet-5-5`, 더 빠르게는 `claude-haiku-5-5`) | — |
-| `YOUTUBE_API_KEY` | 재생 전 영상의 공개·삽입 가능 여부를 YouTube Data API로 재확인 | 검증된 큐레이션 목록 그대로 사용, 재생 오류 시 링크로 전환 |
+| `GEMINI_API_KEY` | 고민 분석(감정·고민 정리·AI 답변·작은 조언), 음악 3곡 선택, 이어지는 질문, 답장 쓰기 | AI 안내가 숨고, ‘답변 기반 요약’(규칙 기반, AI 아님)으로 진행 |
+| `GEMINI_MODEL` | 사용할 모델 (기본 `gemini-3.7-flash`, 없으면 `gemini-3.5-flash`로 다시 시도) | — |
+| `ALLOWED_ORIGINS` | (서버리스) 이 함수를 부를 수 있는 사이트 주소, 쉼표로 구분 | GitHub Pages 주소와 localhost만 허용 |
+| `YOUTUBE_API_KEY` | (로컬 서버) 재생 전 영상의 공개·삽입 가능 여부 재확인 | 검증된 큐레이션 목록 그대로 사용 |
 
-- AI가 켜져 있으면 쓰기 화면에 “고민 문장이 질문 생성을 위해 서버를 거쳐 AI로 전송된다”는 안내와 끄기 스위치가 보입니다.
-- AI 응답이 실패하거나 형식이 맞지 않으면 즉시 로컬 질문 풀로 이어갑니다. AI가 인용한 구절이 원문에 없으면 인용을 버립니다.
-- YouTube 검색·확인에는 고민 원문을 보내지 않습니다. 영상 ID만 씁니다.
+### 내 컴퓨터에서
+`.env.example`을 `.env`로 복사하고 `GEMINI_API_KEY=`에 키를 넣은 뒤 `고민저장소 시작.bat`(또는 `npm start`)으로 엽니다.
+
+### GitHub Pages에서 AI 켜기 (Vercel 서버리스, 무료)
+1. https://aistudio.google.com 에서 Gemini API 키를 만듭니다.
+2. https://vercel.com 에 GitHub로 로그인 → **Add New → Project** → `DoDo` 저장소 Import. (설정은 `vercel.json`에 들어 있어 그대로 Deploy)
+3. Vercel 프로젝트 **Settings → Environment Variables**에 `GEMINI_API_KEY`를 넣고 **Redeploy**.
+4. 배포 주소(예: `https://dodo-xxxx.vercel.app`)를 `preview/config.json`에 적고 커밋·푸시합니다.
+   ```json
+   { "apiBase": "https://dodo-xxxx.vercel.app" }
+   ```
+5. `https://dodo-xxxx.vercel.app/api/health`가 `"ai":true`면 연결 완료. GitHub Pages 사이트에서 고민을 쓰면 실제 AI가 답합니다.
+
+- 서버리스 함수: `api/[task].js`(질문·결과·답장), `api/health.js`. 공통 코드는 `shared/ai-core.mjs`(로컬 서버와 같이 씀).
+- 같은 IP에서 1분 30회 제한, 입력 길이 제한, 허용된 사이트만 호출 가능(CORS).
+- AI가 켜져 있으면 쓰기 화면에 “고민 문장이 서버를 거쳐 Google Gemini로 전송된다”는 안내와 끄기 스위치가 보입니다.
+- 결과 요청이 실패하면 가짜 문장으로 채우지 않고 ‘AI 답변을 받지 못했어요’와 **다시 시도 / AI 없이 기본 정리로 보기**를 보여줍니다. 같은 요청은 한 번만 나갑니다.
+- YouTube에는 고민 원문을 보내지 않습니다. 영상 ID만 씁니다.
 
 ## 음악 플레이어 (사이트 전체)
 
@@ -57,12 +73,12 @@ npm run build:standalone   # preview/index.html 단일 파일 다시 만들기
 
 ## AI가 하는 일
 
-프롬프트는 `shared/prompts.mjs` 한 곳에 있고, 서버와 공유 페이지가 같은 파일을 씁니다.
+프롬프트는 `shared/prompts.mjs` 한 곳에 있고, 로컬 서버와 서버리스 함수가 같은 파일을 씁니다.
 - **이어지는 질문**: 상황(event) · 특히 마음에 걸리는 부분(sticking) · 원하는 도움(help)을 사용자의 표현을 짚어 묻습니다. 노래 질문은 기획서 문구 그대로 고정.
-- **결과 편지**: 원문 그대로의 인용, 2~3문장 요약, 응원, 오늘 할 행동 하나.
-- **곡 선택**: 규칙으로 고른 후보 8곡 안에서만 고르고 이유를 씁니다. 목록 밖 곡·URL은 버립니다.
+- **결과**: 지금 당신의 마음(감정 분석) · 고민 정리 · AI의 답변 · 작은 조언 2개 · 당신을 위한 음악 3곡(곡별 추천 이유). 오늘의 한 걸음은 기존 그대로.
+- **음악 3곡**: 실제 공식 영상이 확인된 곡 목록에서 규칙으로 고른 후보 12곡 안에서만 고릅니다. 목록 밖 곡은 버리므로 없는 곡이 추천되지 않습니다. 카드마다 곡명·아티스트·추천 이유·영상 썸네일·YouTube 링크·Spotify 검색 링크를 보여줍니다.
 - **답장 쓰기**: 결과 아래에서 최대 6번 주고받는 짧은 대화.
-- 모든 AI 응답은 검증합니다. 인용이 원문에 없거나, 형식이 맞지 않거나, 시간이 지나면 그 부분만 내장 규칙 결과를 씁니다.
+- 모든 AI 응답은 검증합니다. 인용이 원문에 없으면 인용을 버리고, 곡 id가 후보에 없으면 버립니다.
 - 위기 표현(자해·자살 등)에는 AI 응답과 상관없이 109 · 1388 안내를 먼저 붙입니다.
 
 ## 이어지는 질문

@@ -1,6 +1,6 @@
 // 고민저장소 서버 (의존성 없음, Node 18+)
 // - 정적 파일: dist/ (vite build 결과)가 있으면 그것을, 없으면 preview/ 를 제공
-// - POST /api/question : 고민 원문 기반 후속 질문 생성 (ANTHROPIC_API_KEY 필요)
+// - POST /api/question|result|reply : Google Gemini로 후속 질문·결과·답장 생성 (GEMINI_API_KEY 필요)
 // - GET  /api/youtube/check?ids=a,b : 영상 존재·삽입 가능 여부 확인 (YOUTUBE_API_KEY 선택)
 // - GET  /api/health
 // API 키는 서버 환경 변수(.env)에만 둔다. 브라우저로 내려보내지 않는다.
@@ -9,7 +9,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { QUESTION_SYSTEM, questionUser, RESULT_SYSTEM, resultUser, REPLY_SYSTEM, replyUser, parseJson } from '../shared/prompts.mjs';
+import { createAi, makeLimiter } from '../shared/ai-core.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -23,9 +23,8 @@ if (existsSync(envFile)) {
 }
 
 const PORT = Number(process.env.PORT || 8787);
-const AI_KEY = process.env.ANTHROPIC_API_KEY || '';
-const AI_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
-const AI_BASE = process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+const ai = createAi({ key: process.env.GEMINI_API_KEY || '', model: process.env.GEMINI_MODEL });
+const AI_KEY = ai.enabled;
 const YT_KEY = process.env.YOUTUBE_API_KEY || '';
 const STATIC = existsSync(join(ROOT, 'dist', 'index.html')) ? join(ROOT, 'dist') : join(ROOT, 'preview');
 
@@ -47,40 +46,7 @@ async function readBody(req, limit = 16_000) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
-// 같은 IP에서 1분에 30번까지만 (로컬·소규모 배포용 간단 제한)
-const hits = new Map();
-function limited(ip) {
-  const now = Date.now();
-  const arr = (hits.get(ip) || []).filter((t) => now - t < 60_000);
-  arr.push(now);
-  hits.set(ip, arr);
-  return arr.length > 30;
-}
-
-const clip = (v, n) => String(v ?? '').slice(0, n);
-const cleanTurns = (t) => (Array.isArray(t) ? t.slice(0, 4).map((x) => ({ question: clip(x.question, 200), answer: clip(x.answer, 300) })) : []);
-
-async function claude(system, user, maxTokens) {
-  const r = await fetch(`${AI_BASE}/v1/messages`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': AI_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
-    signal: AbortSignal.timeout(20000),
-  });
-  if (!r.ok) throw new Error('ai ' + r.status + ' ' + (await r.text()).slice(0, 200));
-  const j = await r.json();
-  return parseJson((j.content || []).map((c) => c.text || '').join(''));
-}
-
-const TASKS = {
-  question: (b) => claude(QUESTION_SYSTEM, questionUser({ category: clip(b.category, 20), worry: clip(b.worry, 1200), turns: cleanTurns(b.turns), slot: ['event', 'sticking', 'help'].includes(b.slot) ? b.slot : 'sticking' }), 500),
-  result: (b) => claude(RESULT_SYSTEM, resultUser({
-    category: clip(b.category, 20), worry: clip(b.worry, 1200), turns: cleanTurns(b.turns), need: clip(b.need, 20),
-    prefs: { lang: clip(b.prefs?.lang, 8), vocal: clip(b.prefs?.vocal, 8) },
-    candidates: (Array.isArray(b.candidates) ? b.candidates : []).slice(0, 10).map((c) => ({ id: clip(c.id, 60), title: clip(c.title, 80), artist: clip(c.artist, 60), lang: clip(c.lang, 6), needs: (c.needs || []).map((n) => clip(n, 8)).slice(0, 3), sound: clip(c.sound, 160), story: clip(c.story, 160) })),
-  }), 900),
-  reply: (b) => claude(REPLY_SYSTEM, replyUser({ category: clip(b.category, 20), worry: clip(b.worry, 1200), summary: clip(b.summary, 600), chat: (Array.isArray(b.chat) ? b.chat : []).slice(-10).map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', text: clip(m.text, 600) })) }), 500),
-};
+const limited = makeLimiter(30);
 
 async function ytCheck(ids) {
   const url = `https://www.googleapis.com/youtube/v3/videos?part=status,snippet&id=${ids.map(encodeURIComponent).join(',')}&key=${YT_KEY}`;
@@ -101,7 +67,7 @@ const server = createServer(async (req, res) => {
       if (limited(req.socket.remoteAddress || '')) return send(res, 429, { error: 'rate_limited' });
       const body = await readBody(req, 24_000);
       try {
-        return send(res, 200, await TASKS[task](body));
+        return send(res, 200, await ai[task](body));
       } catch (e) {
         console.warn(`[고민저장소] AI(${task}) 실패:`, e.message);
         return send(res, 502, { error: 'ai_failed' });
@@ -133,6 +99,6 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`고민저장소 → http://localhost:${PORT}`);
   console.log(`  정적 파일: ${STATIC.replace(ROOT, '.')}`);
-  console.log(`  AI 상담(질문·답장·곡 선택): ${AI_KEY ? `켜짐 (${AI_MODEL})` : '꺼짐 — .env 에 ANTHROPIC_API_KEY 를 넣으면 켜져요. 지금은 내장 질문으로 진행'}`);
+  console.log(`  AI 상담(Gemini): ${AI_KEY ? `켜짐 (${ai.model})` : '꺼짐 — .env 에 GEMINI_API_KEY 를 넣으면 켜져요. 지금은 내장 규칙으로 진행'}`);
   console.log(`  YouTube 확인: ${YT_KEY ? '켜짐' : '꺼짐 — 검증된 큐레이션 목록 사용'}`);
 });

@@ -1191,3 +1191,37 @@ input[type='range']:focus-visible { outline: 2px solid var(--brass); outline-off
 .dock.is-inline .dock__video { aspect-ratio: auto; min-height: 0; }
 .dock__cover--pip { pointer-events: auto; flex-direction: column; gap: .75rem; text-align: center; color: #EDE5D3; }
 .dock__cover--pip .btn { min-height: 2.5rem; padding: 0 1rem; font-size: .875rem; }
+
+/* ── AI 결과 (기존 편지·음반 스타일을 그대로 이어 씀) ── */
+.letter__part { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+.letter__part:first-of-type { border-top: 0; padding-top: 0; }
+.letter__h { font-family: var(--serif); font-size: 0.9375rem; font-weight: 700; color: var(--brass-2); letter-spacing: .04em; }
+.letter__part .letter__lead { margin-top: 0.75rem; }
+.letter__emotion { margin-top: 0.625rem; font-family: var(--serif); font-size: clamp(1.25rem, 2.2vw, 1.5rem); font-weight: 700; color: var(--sage); }
+.letter__text { margin-top: 0.625rem; font-size: 1.0625rem; line-height: 1.85; color: var(--ink); }
+.letter__advice { margin: 0.75rem 0 0; padding: 0; list-style: none; display: grid; gap: 0.625rem; }
+.letter__advice li { position: relative; padding-left: 1.5rem; font-size: 1.0625rem; line-height: 1.75; }
+.letter__advice li::before { content: ''; position: absolute; left: 0.25rem; top: 0.75em; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--brass); }
+.letter__by { margin-top: 2rem; font-size: 0.8125rem; color: var(--ink-2); }
+
+.picks { position: relative; max-width: 80rem; margin: 0 auto; padding: 0 var(--pad) clamp(3rem, 7vw, 5.5rem); }
+.picks__title { font-family: var(--serif); font-size: clamp(1.375rem, 2.4vw, 1.75rem); color: var(--ivory); padding-top: 2rem; border-top: 1px solid rgba(184,154,99,.35); }
+.picks__title span { display: block; margin-top: .375rem; font-family: var(--sans, inherit); font-size: .875rem; font-weight: 400; color: var(--sage-mute); }
+.picks__list { margin: 1.5rem 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+.pick { display: grid; grid-template-rows: auto 1fr; background: rgba(255,255,255,.04); border-radius: .375rem; overflow: hidden; box-shadow: 0 0 0 1px rgba(184,154,99,.28); }
+.pick.is-cur { box-shadow: 0 0 0 1px var(--brass), 0 1rem 2rem -1.25rem rgba(0,0,0,.8); }
+.pick__img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #0b0f0d; display: block; }
+.pick__body { display: flex; flex-direction: column; padding: 1rem 1.125rem 1.25rem; }
+.pick__no { font-size: .75rem; font-weight: 700; color: var(--brass); letter-spacing: .06em; }
+.pick__name { margin-top: .375rem; font-family: var(--serif); font-size: 1.1875rem; color: var(--ivory); }
+.pick__artist { margin-top: .25rem; font-size: .875rem; color: var(--sage-mute); }
+.pick__why { margin-top: .75rem; font-size: .9375rem; line-height: 1.7; color: #E7E2D8; flex: 1; }
+.pick__links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.pick__links .btn { min-height: 2.5rem; padding: 0 .875rem; font-size: .875rem; }
+@media (max-width: 1080px) { .picks__list { grid-template-columns: minmax(0, 1fr); } .pick { grid-template-rows: none; grid-template-columns: minmax(0, 13rem) minmax(0, 1fr); } .pick__img { height: 100%; } }
+@media (max-width: 560px) { .pick { grid-template-columns: minmax(0, 1fr); } .pick__img { height: auto; } }
+.pick__img { color: transparent; font-size: 0; }
+.talk__error { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; text-align: center; min-height: 16rem; }
+.talk__error p { margin: 0; line-height: 1.7; }
+.talk__error .answers { display: flex; flex-wrap: wrap; justify-content: center; gap: .625rem; margin-top: .75rem; }
+.talk__error .btn { min-height: 3rem; }

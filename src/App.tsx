@@ -4,7 +4,7 @@ import type { CategoryId } from './data/songs';
 import { useFullscreenHotkey } from './lib/fullscreen';
 import { buildResult } from './lib/result';
 import { candidates, recommend, seedOf } from './lib/recommend';
-import { aiResult } from './lib/ai';
+import { aiResult, AiFailure, type AiError } from './lib/ai';
 import { CATEGORIES, NEED_LABEL } from './data/flow';
 import { SONGS } from './data/songs';
 import { getRecord, newIds, saveRecord, type Record_ } from './lib/storage';
@@ -37,10 +37,10 @@ export function makeRecord(category: CategoryId, worry: string, turns: Turn[], s
   return { id, docNo, createdAt: Date.now(), category, worry, turns, result, songHistory: [song.id], songId: song.id, sample };
 }
 
-/** AI가 쓴 편지로 결과를 다듬는다. 검증을 통과한 항목만 쓰고, 나머지는 내장 규칙 결과를 유지한다. */
+/** AI(Gemini)가 고민을 분석해 결과를 쓴다. 검증을 통과하지 못하면 AiFailure를 던진다(가짜 문장으로 대신하지 않음). */
 async function withAi(rec: Record_): Promise<Record_> {
   const R = rec.result;
-  const cands = candidates({ category: rec.category, need: R.need, prefs: R.prefs, sticking: R.sticking, seed: seedOf(rec.worry), exclude: sessionShown().filter((x) => x !== rec.songId) }, 8);
+  const cands = candidates({ category: rec.category, need: R.need, prefs: R.prefs, sticking: R.sticking, seed: seedOf(rec.worry), exclude: sessionShown().filter((x) => x !== rec.songId) }, 12);
   const j = await aiResult({
     category: CATEGORIES.find((c) => c.id === rec.category)!.label,
     worry: rec.worry,
@@ -49,22 +49,41 @@ async function withAi(rec: Record_): Promise<Record_> {
     prefs: R.prefs,
     candidates: cands.map((s) => ({ id: s.id, title: s.title, artist: s.artist, lang: s.lang, needs: s.needs, sound: s.sound, story: s.story })),
   });
-  if (!j || typeof j !== 'object') return rec;
-  const ok = (v: unknown, min: number, max: number) => typeof v === 'string' && v.trim().length >= min && v.trim().length <= max;
+  const ok = (v: unknown, min: number, max: number): v is string => typeof v === 'string' && v.trim().length >= min && v.trim().length <= max;
+  if (!j || typeof j !== 'object' || !ok(j.summary, 15, 500) || !ok(j.reply, 15, 700)) throw new AiFailure('failed');
+
+  // 음악: 후보 목록(검증된 실제 공식 영상)에 있는 곡만, 서로 다르게 최대 3곡
+  const picked: { id: string; reason: string }[] = [];
+  for (const it of Array.isArray(j.songs) ? j.songs : []) {
+    const id = typeof it?.id === 'string' ? it.id.trim() : '';
+    if (!cands.some((c) => c.id === id) || !SONGS.some((s) => s.id === id) || picked.some((p) => p.id === id)) continue;
+    picked.push({ id, reason: ok(it.reason, 10, 300) ? it.reason.trim() : '' });
+    if (picked.length === 3) break;
+  }
+  if (!picked.length) throw new AiFailure('failed');
+  // AI가 3곡을 다 채우지 못했으면 같은 기준의 다음 후보로 채운다 (곡은 모두 실제 곡)
+  for (const c of cands) { if (picked.length >= 3) break; if (!picked.some((p) => p.id === c.id)) picked.push({ id: c.id, reason: '' }); }
+  picked.forEach((p) => markShown(p.id));
+
   const quote = ok(j.quote, 4, 80) && rec.worry.includes(j.quote.trim()) ? j.quote.trim() : R.quote;
-  const songOk = typeof j.songId === 'string' && cands.some((c) => c.id === j.songId) && SONGS.some((s) => s.id === j.songId);
-  const songId = songOk ? j.songId : rec.songId;
-  if (songOk) markShown(songId);
+  const emotion = j.emotion && ok(j.emotion.label, 1, 30) && ok(j.emotion.text, 8, 300) ? { label: j.emotion.label.trim(), text: j.emotion.text.trim() } : undefined;
+  const advice = (Array.isArray(j.advice) ? j.advice : []).filter((x: unknown) => ok(x, 6, 160)).map((x: string) => x.trim()).slice(0, 3);
+  const crisis = R.crisis || j.crisis === true;
   const result = {
     ...R,
     quote,
-    lead: ok(j.summary, 20, 420) ? j.summary.trim() : R.lead,
+    lead: j.summary.trim(),
+    reply: j.reply.trim(),
+    emotion,
+    advice: advice.length ? advice : undefined,
     cheer: ok(j.cheer, 8, 300) ? j.cheer.trim() : R.cheer,
     action: ok(j.action, 8, 160) ? j.action.trim() : R.action,
-    ai: ok(j.summary, 20, 420),
+    crisis,
+    ai: true,
   };
-  const reasons = songOk && ok(j.reason, 20, 400) ? { [songId]: j.reason.trim() } : undefined;
-  return { ...rec, result, songId, songHistory: [songId], reasons };
+  const reasons = Object.fromEntries(picked.filter((p) => p.reason).map((p) => [p.id, p.reason]));
+  const songs = picked.map((p) => p.id);
+  return { ...rec, result, songId: songs[0], songHistory: [songs[0]], songs, reasons };
 }
 
 const SAMPLE = {
@@ -107,12 +126,24 @@ export default function App() {
     }, 460);
   };
 
-  const finish = async (d: Draft) => {
-    let rec = makeRecord(d.category!, d.worry, d.turns);
-    if (d.useAi) rec = await withAi(rec);
-    setCurrent(rec);
-    setSaveError(false);
-    go({ name: 'result' });
+  // 같은 고민으로 결과 요청이 두 번 나가지 않게 막는다
+  const finishing = useRef(false);
+  const finish = async (d: Draft): Promise<AiError | null> => {
+    if (finishing.current) return null;
+    finishing.current = true;
+    try {
+      let rec = makeRecord(d.category!, d.worry, d.turns);
+      if (d.useAi) {
+        try { rec = await withAi(rec); }
+        catch (e) { return e instanceof AiFailure ? e.reason : 'failed'; }
+      }
+      setCurrent(rec);
+      setSaveError(false);
+      go({ name: 'result' });
+      return null;
+    } finally {
+      finishing.current = false;
+    }
   };
 
   const restart = () => {

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CATEGORIES } from '../data/flow';
 import type { CategoryId } from '../data/songs';
 import { MAX_Q, nextQuestion, type Answer, type Question, type Turn } from '../lib/conversation';
-import { getProvider, providerNote, type Provider } from '../lib/ai';
+import { AI_ERROR_TEXT, getProvider, providerNote, type AiError, type Provider } from '../lib/ai';
 import { Header } from '../components/Header';
 
 export interface Draft {
@@ -18,10 +18,11 @@ export interface Draft {
 interface Props {
   draft: Draft;
   setDraft: (d: Draft) => void;
-  onFinish: (d: Draft) => Promise<void> | void;
+  /** 결과를 만든다. AI가 실패하면 그 이유를 돌려준다 */
+  onFinish: (d: Draft) => Promise<AiError | null>;
 }
 
-type Stage = { kind: 'category' } | { kind: 'write' } | { kind: 'q'; index: number; q: Question } | { kind: 'thinking'; msg?: string };
+type Stage = { kind: 'category' } | { kind: 'write' } | { kind: 'q'; index: number; q: Question } | { kind: 'thinking'; msg?: string } | { kind: 'error'; reason: AiError; d: Draft };
 
 /** 답을 바꾼 지점 이후의 질문을 다시 만들되, 같은 질문이 다시 나오면 기존 답을 유지한다 */
 async function reconcile(category: CategoryId, worry: string, turns: Turn[], keepUpTo: number, useAi: boolean) {
@@ -50,11 +51,16 @@ export default function Talk({ draft, setDraft, onFinish }: Props) {
     setStage({ kind: 'thinking', msg: d.turns.length ? '답을 읽고 다음 질문을 고르고 있어요…' : '적어준 문장을 읽고 있어요…' });
     const q = d.turns.length >= MAX_Q ? null : await nextQuestion(d.category!, d.worry, d.turns, d.useAi && ai);
     if (!q) {
-      setStage({ kind: 'thinking', msg: d.useAi && ai ? '당신에게 보낼 편지를 쓰고 있어요…' : '결과를 정리하고 있어요…' });
-      await onFinish({ ...d, useAi: d.useAi && ai });
+      await finishWith({ ...d, useAi: d.useAi && ai });
       return;
     }
     setStage({ kind: 'q', index: d.turns.length, q });
+  };
+
+  const finishWith = async (d: Draft) => {
+    setStage({ kind: 'thinking', msg: d.useAi ? 'AI가 고민을 읽고 마음을 정리하고 있어요… 노래도 함께 고르고 있어요' : '결과를 정리하고 있어요…' });
+    const err = await onFinish(d);
+    if (err) setStage({ kind: 'error', reason: err, d });
   };
 
   const submitWorry = async () => {
@@ -86,6 +92,7 @@ export default function Talk({ draft, setDraft, onFinish }: Props) {
       if (stage.index === 0) setStage({ kind: 'write' });
       else setStage({ kind: 'q', index: stage.index - 1, q: draft.turns[stage.index - 1].q });
     } else if (stage.kind === 'write') setStage({ kind: 'category' });
+    else if (stage.kind === 'error') setStage({ kind: 'write' });
   };
 
   const prevAnswer = stage.kind === 'q' ? draft.turns[stage.index]?.a : undefined;
@@ -157,6 +164,17 @@ export default function Talk({ draft, setDraft, onFinish }: Props) {
             <section className="talk__body talk__thinking" aria-live="polite">
               <span className="spinner spinner--ink" />
               <p>{stage.msg || '적어준 문장을 읽고 있어요…'}</p>
+            </section>
+          )}
+
+          {stage.kind === 'error' && (
+            <section className="talk__body talk__error" role="alert">
+              <p><b>AI 답변을 받지 못했어요.</b></p>
+              <p>{AI_ERROR_TEXT[stage.reason]} 적어준 고민과 답은 그대로 남아 있어요.</p>
+              <div className="answers">
+                <button type="button" className="btn btn--sage" onClick={() => finishWith(stage.d)}>다시 시도</button>
+                <button type="button" className="btn btn--line" onClick={() => finishWith({ ...stage.d, useAi: false })}>AI 없이 기본 정리로 보기</button>
+              </div>
             </section>
           )}
 

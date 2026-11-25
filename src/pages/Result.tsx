@@ -1,11 +1,11 @@
 // 결과: 지금 마음의 요약 → 오늘의 추천곡 → 오늘의 한 걸음 → 내 고민저장소 유형
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, NEED_LABEL } from '../data/flow';
-import { SONGS, type Song } from '../data/songs';
+import { SONGS, watchUrl, type Song } from '../data/songs';
 import { AXES, TYPE_NAMES, scoreType, type Axis } from '../data/typeQuiz';
 import { formatDate, type Record_ } from '../lib/storage';
 import { reason, recommend, seedOf, type RecInput } from '../lib/recommend';
-import { getServerInfo } from '../lib/conversation';
+import { apiUrl, getServerInfo } from '../lib/conversation';
 import { Footer, Header } from '../components/Header';
 import Vinyl from '../vinyl/Vinyl';
 import { SongButtons, VideoSlot, useMusic } from '../music/Music';
@@ -49,7 +49,7 @@ function useAvailability(song: Song): Availability {
     getServerInfo().then(async (info) => {
       if (!info.youtube) return;
       try {
-        const r = await fetch(`/api/youtube/check?ids=${song.videoId}`);
+        const r = await fetch(await apiUrl(`/api/youtube/check?ids=${song.videoId}`));
         if (!r.ok) return;
         const j = await r.json();
         const v = j[song.videoId];
@@ -91,6 +91,15 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
     onUpdate({ ...rec, songId: next.id, songHistory: [...rec.songHistory, next.id] });
   };
 
+  // AI가 고른 3곡 (실제 공식 영상이 확인된 곡 목록 안에서만)
+  const picks = (rec.songs || []).map((id) => SONGS.find((x) => x.id === id)).filter((x): x is Song => !!x);
+  const choose = (p: Song) => {
+    markShown(p.id);
+    onUpdate({ ...rec, songId: p.id, songHistory: rec.songHistory.includes(p.id) ? rec.songHistory : [...rec.songHistory, p.id] });
+    if (mode === 'embed') music.play(p);
+    document.getElementById('track-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const finishQuiz = (answers: ('a' | 'b')[]) => {
     const { code } = scoreType(answers);
     const base = { ...rec, type: { code, answers } };
@@ -127,7 +136,36 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <blockquote><p>{R.quote}</p></blockquote>
               <figcaption>내가 직접 쓴 문장에서</figcaption>
             </figure>
-            <p className="letter__lead">{R.lead}</p>
+            {R.ai ? (
+              <>
+                {R.emotion && (
+                  <section className="letter__part" aria-labelledby="ai-emotion">
+                    <h2 id="ai-emotion" className="letter__h">지금 당신의 마음</h2>
+                    <p className="letter__emotion">{R.emotion.label}</p>
+                    <p className="letter__text">{R.emotion.text}</p>
+                  </section>
+                )}
+                <section className="letter__part" aria-labelledby="ai-sum">
+                  <h2 id="ai-sum" className="letter__h">고민 정리</h2>
+                  <p className="letter__lead">{R.lead}</p>
+                </section>
+                {R.reply && (
+                  <section className="letter__part" aria-labelledby="ai-reply">
+                    <h2 id="ai-reply" className="letter__h">AI의 답변</h2>
+                    <p className="letter__text">{R.reply}</p>
+                  </section>
+                )}
+                {R.advice && R.advice.length > 0 && (
+                  <section className="letter__part" aria-labelledby="ai-advice">
+                    <h2 id="ai-advice" className="letter__h">작은 조언</h2>
+                    <ul className="letter__advice">{R.advice.map((a, i) => <li key={i}>{a}</li>)}</ul>
+                  </section>
+                )}
+                <p className="letter__by">Google Gemini가 당신이 쓴 문장을 읽고 쓴 답이에요. AI는 전문 상담사가 아니에요.</p>
+              </>
+            ) : (
+              <p className="letter__lead">{R.lead}</p>
+            )}
           </article>
         </section>
 
@@ -156,6 +194,31 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               </div>
             </div>
           </div>
+          {picks.length > 1 && (
+            <div className="picks" aria-labelledby="picks-title">
+              <h2 id="picks-title" className="picks__title">당신을 위한 음악 <span>AI가 고민에 맞춰 고른 {picks.length}곡</span></h2>
+              <ol className="picks__list">
+                {picks.map((p, i) => (
+                  <li key={p.id} className={`pick ${p.id === song.id ? 'is-cur' : ''}`}>
+                    <img className="pick__img" src={`https://i.ytimg.com/vi/${p.videoId}/mqdefault.jpg`} alt={`${p.title} 공식 영상 썸네일`} loading="lazy" referrerPolicy="no-referrer" />
+                    <div className="pick__body">
+                      <p className="pick__no">{String(i + 1).padStart(2, '0')}{p.id === song.id ? ' · 지금 위에 걸린 곡' : ''}</p>
+                      <h3 className="pick__name">{p.title}</h3>
+                      <p className="pick__artist">{p.artist}</p>
+                      <p className="pick__why">{rec.reasons?.[p.id] ?? reason(p, recInput(rec), R.phrase)}</p>
+                      <div className="pick__links">
+                        {p.id !== song.id && (
+                          <button type="button" className="btn btn--brass" onClick={() => choose(p)}>이 곡 듣기</button>
+                        )}
+                        <a className="btn btn--line-dark" href={watchUrl(p)} target="_blank" rel="noopener noreferrer">YouTube</a>
+                        <a className="btn btn--line-dark" href={`https://open.spotify.com/search/${encodeURIComponent(`${p.title} ${p.artist.replace(/\s*\(.*?\)\s*/g, ' ')}`)}`} target="_blank" rel="noopener noreferrer">Spotify</a>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </section>
 
         {/* 3 · 오늘의 한 걸음 */}

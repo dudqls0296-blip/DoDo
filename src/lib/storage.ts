@@ -16,6 +16,8 @@ export interface Record_ {
   songHistory: string[];
   songId: string;
   type?: { code: string; answers: ('a' | 'b')[]; songId?: string };
+  /** AI가 고른 ‘당신을 위한 음악’ 3곡 (첫 곡이 대표곡) */
+  songs?: string[];
   /** 곡별 추천 이유 (AI가 쓴 이유가 있으면 여기에) */
   reasons?: Record<string, string>;
   /** 답장 쓰기 대화 */

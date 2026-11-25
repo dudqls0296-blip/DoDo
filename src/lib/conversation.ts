@@ -201,14 +201,32 @@ export function localQuestion(category: CategoryId, worry: string, slot: Slot): 
 export interface ServerInfo { ok: boolean; ai: boolean; youtube: boolean }
 let serverInfo: Promise<ServerInfo> | null = null;
 
+/** AI 서버 주소. GitHub Pages처럼 서버가 없는 곳에서는 config.json 의 apiBase(서버리스 함수 주소)를 쓴다 */
+let apiBasePromise: Promise<string> | null = null;
+export function getApiBase(): Promise<string> {
+  if (!apiBasePromise) {
+    apiBasePromise = (async () => {
+      try {
+        const r = await fetch('./config.json', { cache: 'no-store' });
+        if (!r.ok) return '';
+        const j = await r.json();
+        const b = typeof j?.apiBase === 'string' ? j.apiBase.trim().replace(/\/+$/, '') : '';
+        return /^https:\/\//.test(b) || /^http:\/\/(localhost|127\.0\.0\.1)/.test(b) ? b : '';
+      } catch { return ''; }
+    })();
+  }
+  return apiBasePromise;
+}
+export async function apiUrl(path: string) { return (await getApiBase()) + path; }
+
 export function getServerInfo(): Promise<ServerInfo> {
   if (!serverInfo) {
     serverInfo = (async () => {
       if (location.protocol === 'file:') return { ok: false, ai: false, youtube: false };
       try {
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 2500);
-        const r = await fetch('/api/health', { signal: ctrl.signal });
+        const t = setTimeout(() => ctrl.abort(), 6000);
+        const r = await fetch(await apiUrl('/api/health'), { signal: ctrl.signal });
         clearTimeout(t);
         if (!r.ok) throw new Error();
         const j = await r.json();
