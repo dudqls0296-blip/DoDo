@@ -1,0 +1,26 @@
+{
+  "name": "gominjeojangso",
+  "private": true,
+  "version": "1.0.0",
+  "description": "고민저장소 — 밤에 문을 여는 개인 서재 겸 음악 감상실",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "node server/index.mjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "node server/index.mjs",
+    "build:standalone": "node scripts/build-standalone.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.0",
+    "vite": "^7.0.0"
+  }
+}
