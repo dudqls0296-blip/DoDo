@@ -143,8 +143,15 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="record__artist">{song.artist} <span>· {song.genre}</span></p>
               <p className="record__why">{why}</p>
               <div className="yt">
-                <SongButtons song={song} linkOnly={mode !== 'embed'} />
-                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 재생하면 화면 구석의 플레이어로 이어져요. 리포트를 보는 동안에도 끊기지 않아요.</p>
+                <div className="yt__frame is-on">
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${song.videoId}?rel=0&playsinline=1`}
+                    title={`${song.title} - ${song.artist}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+                <p className="yt__src">공식 영상 · {song.channel} · 계정 로그인 없이 바로 감상할 수 있어요</p>
               </div>
               <div className="record__more">
                 <button type="button" className="btn btn--ghost-dark" onClick={another}>
@@ -196,7 +203,16 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
                     </p>
                   )}
                   {typeSong && (
-                    <div className="typecard__play"><SongButtons song={typeSong} size="md" /></div>
+                    <div className="typecard__play">
+                      <div className="yt__frame is-on" style={{ marginTop: '0.75rem', maxWidth: '480px' }}>
+                        <iframe
+                          src={`https://www.youtube-nocookie.com/embed/${typeSong.videoId}?rel=0&playsinline=1`}
+                          title={`${typeSong.title} - ${typeSong.artist}`}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
                   )}
                   <button type="button" className="btn btn--text" onClick={() => setQuiz(true)}>다시 하기</button>
                 </div>
