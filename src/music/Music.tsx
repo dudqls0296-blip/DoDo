@@ -45,6 +45,8 @@ interface MusicApi {
   status: MusicStatus;
   current: Song | null;
   error: string;
+  /** 플레이어가 준비됐는지 (광고가 나오는 동안에도 true) */
+  ready: boolean;
   /** 이 곡을 지금 재생 (사용자 클릭에서 호출) */
   play: (song: Song) => void;
   /** 음악 켜기/끄기 */
@@ -66,6 +68,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<MusicStatus>('off');
   const [current, setCurrent] = useState<Song | null>(null);
   const [error, setError] = useState('');
+  /** 플레이어가 준비됐는지 (광고 중에도 true) */
+  const [isReady, setIsReady] = useState(false);
   const queue = useRef<string[]>([...RADIO]);
   const player = useRef<any>(null);
   const ready = useRef(false);
@@ -107,7 +111,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         host: 'https://www.youtube-nocookie.com',
         playerVars: { autoplay: 1, rel: 0, playsinline: 1, modestbranding: 1, ...(origin ? { origin } : {}) },
         events: {
-          onReady: (e: any) => { ready.current = true; try { e.target.playVideo(); } catch { /* noop */ } },
+          onReady: (e: any) => { ready.current = true; setIsReady(true); try { e.target.playVideo(); } catch { /* noop */ } },
           onStateChange: (e: any) => {
             const S = YT.PlayerState;
             if (e.data === S.PLAYING) { setStatus('playing'); setError(''); }
@@ -157,9 +161,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [pause, resume, startVideo, nextFromQueue]);
 
   const api = useMemo<MusicApi>(() => ({
-    on, status, current, error, play, setOn, toggleOn: () => setOn(!on), pause, resume, next,
+    on, status, current, error, ready: isReady, play, setOn, toggleOn: () => setOn(!on), pause, resume, next,
     isPlaying: (id) => on && status === 'playing' && current?.id === id,
-  }), [on, status, current, error, play, setOn, pause, resume, next]);
+  }), [on, status, current, error, isReady, play, setOn, pause, resume, next]);
 
   useEffect(() => { document.documentElement.dataset.music = on ? 'on' : 'off'; }, [on]);
 
@@ -169,7 +173,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       <aside className={`dock ${on ? 'is-on' : ''}`} aria-label="음악 플레이어" aria-hidden={!on}>
         <div className="dock__video">
           <div ref={host} className="dock__host" />
-          {status === 'loading' && <div className="dock__cover"><span className="spinner" /> 불러오는 중…</div>}
+          {status === 'loading' && !isReady && <div className="dock__cover"><span className="spinner" /> 불러오는 중…</div>}
           {status === 'error' && current && (
             <div className="dock__cover dock__cover--err">
               <p>{error}</p>
@@ -226,14 +230,15 @@ export function SongButtons({ song, linkOnly = false, size = 'lg' }: { song: Son
   const m = useMusic();
   const isCur = m.on && m.current?.id === song.id;
   const playing = isCur && m.status === 'playing';
-  const loading = isCur && m.status === 'loading';
+  const loading = isCur && m.status === 'loading' && !m.ready;
+  const busy = isCur && m.status === 'loading' && m.ready; // 광고 또는 버퍼링 중
   const cls = size === 'lg' ? 'btn--lg' : '';
   return (
     <div className="song-btns">
       {!linkOnly && (
         <button type="button" className={`btn btn--brass ${cls}`} disabled={loading}
-          onClick={() => (playing ? m.pause() : isCur && m.status === 'paused' ? m.resume() : m.play(song))}>
-          {loading ? <><span className="spinner" /> 불러오는 중</> : playing ? (
+          onClick={() => (playing || busy ? m.pause() : isCur && m.status === 'paused' ? m.resume() : m.play(song))}>
+          {loading ? <><span className="spinner" /> 불러오는 중</> : playing || busy ? (
             <><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" /></svg> 일시정지</>
           ) : (
             <><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor" /></svg> {isCur ? '이어 듣기' : '여기서 듣기'}</>

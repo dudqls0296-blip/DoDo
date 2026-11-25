@@ -933,8 +933,8 @@ input[type='range']:focus-visible { outline: 2px solid var(--brass); outline-off
 .dock.is-on { transform: none; opacity: 1; visibility: visible; transition: transform .45s var(--ease), opacity .3s; }
 .dock__video { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; background: #000; }
 .dock__host, .dock__host iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.dock__cover { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: .625rem; color: var(--sage-mute); font-size: .875rem; background: rgba(10,16,14,.85); }
-.dock__cover--err { flex-direction: column; padding: 1rem; text-align: center; line-height: 1.6; color: #EDE5D3; }
+.dock__cover { pointer-events: none; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: .625rem; color: var(--sage-mute); font-size: .875rem; background: rgba(10,16,14,.85); }
+.dock__cover--err { pointer-events: auto; flex-direction: column; padding: 1rem; text-align: center; line-height: 1.6; color: #EDE5D3; }
 .dock__cover--err a { color: var(--brass); font-weight: 700; }
 .dock__bar { display: flex; align-items: center; gap: .75rem; padding: .625rem .75rem .625rem 1rem; }
 .dock__meta { flex: 1; min-width: 0; }
