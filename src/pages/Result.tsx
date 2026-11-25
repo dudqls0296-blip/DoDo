@@ -9,6 +9,7 @@ import { getServerInfo } from '../lib/conversation';
 import { Footer, Header } from '../components/Header';
 import Vinyl from '../vinyl/Vinyl';
 import { SongButtons, useMusic } from '../music/Music';
+import { runGeminiAnalysis } from '../App';
 
 type Availability = 'embed' | 'link' | 'search';
 import TypeQuiz from '../components/TypeQuiz';
@@ -79,11 +80,22 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
   const song = SONGS.find((s) => s.id === rec.songId)!;
   const music = useMusic();
   const [quiz, setQuiz] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const mode = useAvailability(song);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const why = useMemo(() => rec.reasons?.[song.id] ?? reason(song, recInput(rec), R.phrase), [song.id, rec.type?.code, rec.reasons]);
   useEffect(() => { titleRef.current?.focus(); markShown(song.id); }, []);
   useEffect(() => { markShown(song.id); }, [song.id]);
+
+  const handleRetryGemini = async () => {
+    setRetrying(true);
+    try {
+      const { record } = await runGeminiAnalysis(rec);
+      onUpdate(record);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const another = () => {
     const next = recommend(recInput(rec, [song.id]));
@@ -121,7 +133,21 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="letter__from">고민저장소에서 온 편지</p>
               <p className="letter__meta">{formatDate(rec.createdAt)} · {cat.label} · No. {rec.docNo}</p>
             </header>
-            <p className="badge">{R.ai ? 'AI가 당신의 문장을 읽고 쓴 편지' : '질문 종합 맞춤 분석 리포트'}</p>
+            <p className="badge">{R.ai ? 'Gemini 맞춤 분석 편지' : '기본 분석 결과'}</p>
+            {R.geminiFailed && (
+              <div className="care" style={{ margin: '0.75rem 0 1.25rem', border: '1px solid var(--brass)', background: 'rgba(184,154,99,0.12)' }}>
+                <p><b>[제미나이 호출 실패]</b> Gemini API 응답에 실패하여 기본 분석 결과가 표시되었습니다.</p>
+                <button
+                  type="button"
+                  className="btn btn--brass"
+                  style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }}
+                  disabled={retrying}
+                  onClick={handleRetryGemini}
+                >
+                  {retrying ? 'Gemini로 분석 중…' : 'Gemini로 다시 분석'}
+                </button>
+              </div>
+            )}
             <h1 id="sum-title" ref={titleRef} tabIndex={-1} className="letter__title">지금 마음의 요약</h1>
             <figure className="quote">
               <blockquote><p>{R.quote}</p></blockquote>

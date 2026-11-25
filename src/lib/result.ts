@@ -18,6 +18,8 @@ export interface ResultData {
   crisis: boolean;
   /** AI가 쓴 결과인지 */
   ai?: boolean;
+  /** Gemini 호출 실패 여부 */
+  geminiFailed?: boolean;
 }
 
 const CRISIS = /(죽고\s?싶|죽을까|자살|자해|사라지고\s?싶|살기\s?싫|없어지고\s?싶|끝내고\s?싶)/;
