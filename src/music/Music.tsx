@@ -148,6 +148,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     try { player.current.playVideo(); } catch { /* noop */ }
   }, [startVideo]);
   const next = useCallback(() => startVideo(nextFromQueue(curRef.current?.id)), [nextFromQueue, startVideo]);
+  /** 지금 곡을 YouTube에서 이어 보기 (사이트 안 재생은 멈춘다) */
+  const openOnYouTube = useCallback(() => {
+    const s = curRef.current;
+    if (!s) return;
+    let t = 0;
+    try { t = Math.floor(player.current?.getCurrentTime?.() || 0); } catch { /* noop */ }
+    try { player.current?.pauseVideo?.(); } catch { /* noop */ }
+    window.open(watchUrl(s) + (t > 3 ? `&t=${t}s` : ''), '_blank', 'noopener');
+  }, []);
 
   const setOn = useCallback((v: boolean) => {
     if (v) {
@@ -167,6 +176,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { document.documentElement.dataset.music = on ? 'on' : 'off'; }, [on]);
 
+  // 준비된 뒤에도 4초 넘게 '재생 중'이 안 되면 광고가 나오는 중일 가능성이 커서 안내를 띄운다
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    setStuck(false);
+    if (!(on && isReady && status === 'loading')) return;
+    const t = window.setTimeout(() => setStuck(true), 4000);
+    return () => window.clearTimeout(t);
+  }, [on, isReady, status, current]);
+
   return (
     <Ctx.Provider value={api}>
       {children}
@@ -182,6 +200,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
             </div>
           )}
         </div>
+        {current && on && stuck && status === 'loading' && (
+          <p className="dock__hint">광고 건너뛰기가 눌리지 않으면 <button type="button" onClick={openOnYouTube}>YouTube에서 열기 ↗</button> 또는 다음 곡을 눌러주세요.</p>
+        )}
         {current && (
           <div className="dock__bar">
             <div className="dock__meta">
@@ -200,6 +221,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
               )}
               <button type="button" className="dock__btn" onClick={next} aria-label="다음 곡" title="다음 곡" tabIndex={on ? 0 : -1}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l9 6-9 6zM16 6h2v12h-2z" /></svg>
+              </button>
+              <button type="button" className="dock__btn dock__btn--yt" onClick={openOnYouTube} aria-label="YouTube에서 열기" title="YouTube에서 열기 (광고 건너뛰기가 안 될 때)" tabIndex={on ? 0 : -1}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h14v-5M13 4h7v7M20 4l-9 9" fill="none" stroke="currentColor" strokeWidth="2" /></svg>
               </button>
               <button type="button" className="dock__btn dock__btn--off" onClick={() => setOn(false)} aria-label="음악 끄기" title="음악 끄기" tabIndex={on ? 0 : -1}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2" /></svg>

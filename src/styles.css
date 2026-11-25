@@ -946,6 +946,8 @@ input[type='range']:focus-visible { outline: 2px solid var(--brass); outline-off
 .dock__btn svg { width: 1.125rem; height: 1.125rem; fill: currentColor; }
 .dock__btn:first-child { background: radial-gradient(circle at 35% 30%, #e1c992, #b89a63 55%, #8e7448); color: var(--forest); }
 .dock__btn--off { color: var(--sage-mute); }
+.dock__hint { margin: 0; padding: .5rem 1rem 0; font-size: .75rem; line-height: 1.5; color: var(--sage-mute); }
+.dock__hint button { border: 0; background: none; padding: 0; color: var(--brass); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 
 /* 음악 ON/OFF */
 .music-toggle { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.75rem; padding: 0 .875rem; margin-left: .25rem; border-radius: 2rem; border: 1px solid transparent; background: none; cursor: pointer; font-weight: 700; font-size: .875rem; color: inherit; }
