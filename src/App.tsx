@@ -27,8 +27,6 @@ const TITLES: Record<string, string> = {
   present: `발표 자료 · ${BRAND}`,
 };
 
-import { requestGeminiAnalysis } from './lib/gemini';
-
 const EMPTY: Draft = { worry: '', basis: '', turns: [], useAi: true };
 
 export function makeRecord(category: CategoryId, worry: string, turns: Turn[], sample = false): Record_ {
@@ -39,75 +37,34 @@ export function makeRecord(category: CategoryId, worry: string, turns: Turn[], s
   return { id, docNo, createdAt: Date.now(), category, worry, turns, result, songHistory: [song.id], songId: song.id, sample };
 }
 
-/** Gemini를 호출하여 답변을 분석하고 최적의 곡을 추천받는다 */
-export async function runGeminiAnalysis(rec: Record_): Promise<{ record: Record_; success: boolean }> {
+/** AI가 쓴 편지로 결과를 다듬는다. 검증을 통과한 항목만 쓰고, 나머지는 내장 규칙 결과를 유지한다. */
+async function withAi(rec: Record_): Promise<Record_> {
   const R = rec.result;
-  const cands = candidates(
-    {
-      category: rec.category,
-      need: R.need,
-      prefs: R.prefs,
-      sticking: R.sticking,
-      seed: seedOf(rec.worry),
-      exclude: sessionShown().filter((x) => x !== rec.songId),
-    },
-    10
-  );
-
-  const j = await requestGeminiAnalysis({
+  const cands = candidates({ category: rec.category, need: R.need, prefs: R.prefs, sticking: R.sticking, seed: seedOf(rec.worry), exclude: sessionShown().filter((x) => x !== rec.songId) }, 8);
+  const j = await aiResult({
     category: CATEGORIES.find((c) => c.id === rec.category)!.label,
     worry: rec.worry,
-    turns: rec.turns.map((t) => ({
-      question: t.q.text,
-      answer: t.a.kind === 'option' ? t.a.label : t.a.kind === 'text' ? t.a.text : '(건너뜀)',
-    })),
+    turns: rec.turns.map((t) => ({ question: t.q.text, answer: t.a.kind === 'option' ? t.a.label : t.a.kind === 'text' ? t.a.text : '(건너뜀)' })),
     need: NEED_LABEL[R.need],
     prefs: R.prefs,
-    candidates: cands.map((s) => ({
-      id: s.id,
-      title: s.title,
-      artist: s.artist,
-      lang: s.lang,
-      needs: s.needs,
-      sound: s.sound,
-      story: s.story,
-    })),
+    candidates: cands.map((s) => ({ id: s.id, title: s.title, artist: s.artist, lang: s.lang, needs: s.needs, sound: s.sound, story: s.story })),
   });
-
-  if (!j || typeof j !== 'object' || !j.summary) {
-    return {
-      record: {
-        ...rec,
-        result: {
-          ...R,
-          ai: false,
-          geminiFailed: true,
-        },
-      },
-      success: false,
-    };
-  }
-
+  if (!j || typeof j !== 'object') return rec;
   const ok = (v: unknown, min: number, max: number) => typeof v === 'string' && v.trim().length >= min && v.trim().length <= max;
-  const quote = ok(j.quote, 4, 100) && rec.worry.includes(j.quote.trim()) ? j.quote.trim() : R.quote;
-  const songOk = typeof j.songId === 'string' && SONGS.some((s) => s.id === j.songId);
+  const quote = ok(j.quote, 4, 80) && rec.worry.includes(j.quote.trim()) ? j.quote.trim() : R.quote;
+  const songOk = typeof j.songId === 'string' && cands.some((c) => c.id === j.songId) && SONGS.some((s) => s.id === j.songId);
   const songId = songOk ? j.songId : rec.songId;
   if (songOk) markShown(songId);
-
   const result = {
     ...R,
     quote,
-    lead: j.summary.trim(),
-    cheer: ok(j.cheer, 6, 400) ? j.cheer.trim() : R.cheer,
-    action: ok(j.action, 6, 200) ? j.action.trim() : R.action,
-    ai: true,
-    geminiFailed: false,
+    lead: ok(j.summary, 20, 420) ? j.summary.trim() : R.lead,
+    cheer: ok(j.cheer, 8, 300) ? j.cheer.trim() : R.cheer,
+    action: ok(j.action, 8, 160) ? j.action.trim() : R.action,
+    ai: ok(j.summary, 20, 420),
   };
-  const reasons = songOk && j.reason ? { [songId]: j.reason.trim() } : rec.reasons;
-  return {
-    record: { ...rec, result, songId, songHistory: [songId], reasons },
-    success: true,
-  };
+  const reasons = songOk && ok(j.reason, 20, 400) ? { [songId]: j.reason.trim() } : undefined;
+  return { ...rec, result, songId, songHistory: [songId], reasons };
 }
 
 const SAMPLE = {
@@ -152,10 +109,7 @@ export default function App() {
 
   const finish = async (d: Draft) => {
     let rec = makeRecord(d.category!, d.worry, d.turns);
-    if (d.useAi) {
-      const { record } = await runGeminiAnalysis(rec);
-      rec = record;
-    }
+    if (d.useAi) rec = await withAi(rec);
     setCurrent(rec);
     setSaveError(false);
     go({ name: 'result' });

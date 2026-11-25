@@ -245,50 +245,26 @@ function fromAi(j: any, worry: string, slot: Slot): Question | null {
   };
 }
 
-import { requestGeminiQuestion } from './gemini';
-
-export type NextQuestionResult =
-  | { kind: 'done' }
-  | { kind: 'question'; question: Question; source: 'gemini' | 'local' }
-  | { kind: 'error'; slot: Slot };
-
-export async function fetchNextQuestion(
-  category: CategoryId,
-  worry: string,
-  turns: Turn[],
-  useAi: boolean
-): Promise<NextQuestionResult> {
-  const slot = nextSlot(worry, turns);
-  if (!slot) return { kind: 'done' };
-
-  if (useAi && slot !== 'music') {
-    const raw = await requestGeminiQuestion({
-      category: CATEGORIES.find((c) => c.id === category)?.label || category,
-      worry,
-      turns: turns.map((x) => ({
-        question: x.q.text,
-        answer: x.a.kind === 'option' ? x.a.label : x.a.kind === 'text' ? x.a.text : '(건너뜀)',
-      })),
-      slot,
-    });
-
-    if (raw) {
-      if (raw.skip) return { kind: 'done' };
-      const q = fromAi(raw, worry, slot);
-      if (q) return { kind: 'question', question: q, source: 'gemini' };
-    }
-    return { kind: 'error', slot };
-  }
-
-  return { kind: 'question', question: localQuestion(category, worry, slot), source: 'local' };
+async function aiQuestionFor(category: CategoryId, worry: string, turns: Turn[], slot: Slot): Promise<Question | null> {
+  const { aiQuestion } = await import('./ai');
+  const j = await aiQuestion({
+    category: CATEGORIES.find((c) => c.id === category)?.label || '',
+    worry,
+    slot,
+    turns: turns.map((x) => ({ question: x.q.text, answer: x.a.kind === 'option' ? x.a.label : x.a.kind === 'text' ? x.a.text : '(건너뜀)' })),
+  });
+  return fromAi(j, worry, slot);
 }
 
 /** 다음 질문 만들기. AI 사용이 허락되고 서버가 연결되어 있으면 AI → 실패 시 로컬 풀. */
 export async function nextQuestion(category: CategoryId, worry: string, turns: Turn[], useAi: boolean): Promise<Question | null> {
-  const res = await fetchNextQuestion(category, worry, turns, useAi);
-  if (res.kind === 'done') return null;
-  if (res.kind === 'question') return res.question;
-  return localQuestion(category, worry, res.slot);
+  const slot = nextSlot(worry, turns);
+  if (!slot) return null;
+  if (useAi && slot !== 'music') {
+    const q = await aiQuestionFor(category, worry, turns, slot);
+    if (q) return q;
+  }
+  return localQuestion(category, worry, slot);
 }
 
 /** 고민 원문에서 요약에 인용할 짧은 구절 */

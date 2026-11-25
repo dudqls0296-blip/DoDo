@@ -76,24 +76,14 @@ export function reason(s: Song, r: RecInput, phrase: string | undefined): string
   const p = phrase && phrase.length <= 24 ? `‘${phrase}’` : `${cat} 고민`;
   const pj = phrase && phrase.length <= 24 ? (hasBatchim(phrase) ? '이라고' : '라고') : '';
   let lead: string;
-  if (r.need === 'same') {
-    lead = phrase && pj
-      ? `${p}${pj} 적어주신 마음을 억지로 밝게 바꾸려 하기보다, 지금 이 순간 그 감정의 곁에 가만히 머물러 줄 수 있는 곡이에요.`
-      : `${cat}의 무거운 감정을 억지로 밀어내지 않고, 지금 당신의 마음 곁을 따뜻하게 지켜줄 곡이에요.`;
-  } else if (r.need === 'calm') {
-    lead = phrase && pj
-      ? `${p}${pj} 적어주신 지금, 팽팽하게 당겨진 생각의 끈을 풀고 가쁜 숨을 차분히 고르게 해줄 곡이에요.`
-      : `${cat} 앞에서 복잡해진 머릿속의 속도를 한 템포 늦추고 평온함을 되찾아줄 곡이에요.`;
-  } else {
-    lead = phrase && pj
-      ? `${p}${pj} 적어주신 무거운 마음을 털어내고, 다시 앞으로 한 걸음 내딛을 수 있도록 등을 다정하게 밀어주는 곡이에요.`
-      : `${cat} 앞에서 멈추어 있던 마음에 다시 온기와 활력을 불어넣어 줄 곡이에요.`;
-  }
+  if (r.need === 'same') lead = phrase && pj ? `${p}${pj} 적은 마음을 억지로 밝게 바꾸기보다, 그 곁에 잠시 머물 수 있는 곡이에요.` : `${p}을 서둘러 바꾸려 하지 않고, 지금 마음 곁에 머무는 곡이에요.`;
+  else if (r.need === 'calm') lead = pj ? `${p}${pj} 적은 지금, 마음의 속도를 조금 늦추고 숨을 고르게 해줄 곡이에요.` : `${p} 앞에서 마음의 속도를 조금 늦춰줄 곡이에요.`;
+  else lead = pj ? `${p}${pj} 적은 지금, 다시 한 걸음 내딛도록 등을 밀어주는 곡이에요.` : `${p} 앞에서 다시 한 걸음 내딛도록 등을 밀어주는 곡이에요.`;
   const extras: string[] = [];
-  if (!s.vocal && r.category === 'study') extras.push('가사가 없어 생각에 방해받지 않고 오롯이 나에게 집중할 수 있어요.');
-  else if (!s.vocal && r.prefs.vocal === 'inst') extras.push('가사 없는 곡을 선호하셔서 마음을 정돈하기 좋은 연주곡으로 선정했어요.');
-  if (r.prefs.lang === 'ko' && s.lang === 'ko') extras.push('와닿는 한국어 노랫말로 깊은 공감을 전해줘요.');
-  if (r.prefs.lang === 'en' && s.lang === 'en') extras.push('감각적인 멜로디와 영어 노랫말이 마음에 기분 좋은 환기를 더해줘요.');
+  if (!s.vocal && r.category === 'study') extras.push('가사가 없어서 공부하며 틀어둬도 글자가 머릿속에 섞이지 않아요.');
+  else if (!s.vocal && r.prefs.vocal === 'inst') extras.push('가사 없는 곡을 원한다고 해서 연주곡으로 골랐어요.');
+  if (r.prefs.lang === 'ko' && s.lang === 'ko') extras.push('한국어 노래를 원한다고 해서 반영했어요.');
+  if (r.prefs.lang === 'en' && s.lang === 'en') extras.push('영어 노래를 원한다고 해서 반영했어요.');
   return [lead, `${s.sound}.`, `${s.story}.`, ...extras].join(' ');
 }
 

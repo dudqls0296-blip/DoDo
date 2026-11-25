@@ -1,8 +1,9 @@
 // 고민 기록: 카테고리 → 직접 쓰기 → 내 답에서 이어지는 질문 (한 화면에 질문 하나)
 import { useEffect, useRef, useState } from 'react';
-import { CATEGORIES, type Slot } from '../data/flow';
+import { CATEGORIES } from '../data/flow';
 import type { CategoryId } from '../data/songs';
-import { MAX_Q, fetchNextQuestion, localQuestion, nextQuestion, type Answer, type Question, type Turn } from '../lib/conversation';
+import { MAX_Q, nextQuestion, type Answer, type Question, type Turn } from '../lib/conversation';
+import { getProvider, providerNote, type Provider } from '../lib/ai';
 import { Header } from '../components/Header';
 
 export interface Draft {
@@ -20,12 +21,7 @@ interface Props {
   onFinish: (d: Draft) => Promise<void> | void;
 }
 
-type Stage =
-  | { kind: 'category' }
-  | { kind: 'write' }
-  | { kind: 'q'; index: number; q: Question }
-  | { kind: 'thinking'; msg?: string }
-  | { kind: 'error'; slot: Slot; draft: Draft };
+type Stage = { kind: 'category' } | { kind: 'write' } | { kind: 'q'; index: number; q: Question } | { kind: 'thinking'; msg?: string };
 
 /** 답을 바꾼 지점 이후의 질문을 다시 만들되, 같은 질문이 다시 나오면 기존 답을 유지한다 */
 async function reconcile(category: CategoryId, worry: string, turns: Turn[], keepUpTo: number, useAi: boolean) {
@@ -40,33 +36,32 @@ async function reconcile(category: CategoryId, worry: string, turns: Turn[], kee
 
 export default function Talk({ draft, setDraft, onFinish }: Props) {
   const [stage, setStage] = useState<Stage>(() => (draft.category ? { kind: 'write' } : { kind: 'category' }));
+  const [provider, setProvider] = useState<Provider>(null);
+  const ai = !!provider;
   const [custom, setCustom] = useState<string | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const cat = CATEGORIES.find((c) => c.id === draft.category);
 
+  useEffect(() => { getProvider().then(setProvider); }, []);
   useEffect(() => { titleRef.current?.focus(); setCustom(null); }, [stage.kind, stage.kind === 'q' ? stage.index : -1]);
 
   const advance = async (d: Draft) => {
     setStage({ kind: 'thinking', msg: d.turns.length ? '답을 읽고 다음 질문을 고르고 있어요…' : '적어준 문장을 읽고 있어요…' });
-    const res = await fetchNextQuestion(d.category!, d.worry, d.turns, d.useAi);
-    if (res.kind === 'done') {
-      setStage({ kind: 'thinking', msg: '답변을 분석하고 결과를 정리하고 있어요…' });
-      await onFinish(d);
+    const q = d.turns.length >= MAX_Q ? null : await nextQuestion(d.category!, d.worry, d.turns, d.useAi && ai);
+    if (!q) {
+      setStage({ kind: 'thinking', msg: d.useAi && ai ? '당신에게 보낼 편지를 쓰고 있어요…' : '결과를 정리하고 있어요…' });
+      await onFinish({ ...d, useAi: d.useAi && ai });
       return;
     }
-    if (res.kind === 'error') {
-      setStage({ kind: 'error', slot: res.slot, draft: d });
-      return;
-    }
-    setStage({ kind: 'q', index: d.turns.length, q: res.question });
+    setStage({ kind: 'q', index: d.turns.length, q });
   };
 
   const submitWorry = async () => {
     if (draft.worry.trim().length < 4 || !draft.category) return;
     setStage({ kind: 'thinking' });
     // 고민 원문이 바뀌었으면 그 문장에 기대는 질문만 다시 만든다
-    const turns = draft.worry === draft.basis ? draft.turns : await reconcile(draft.category, draft.worry, draft.turns, 0, draft.useAi);
+    const turns = draft.worry === draft.basis ? draft.turns : await reconcile(draft.category, draft.worry, draft.turns, 0, draft.useAi && ai);
     const d = { ...draft, basis: draft.worry, turns };
     setDraft(d);
     await advance(d);
@@ -78,7 +73,7 @@ export default function Talk({ draft, setDraft, onFinish }: Props) {
     if (index < draft.turns.length - 1) {
       // 이전 답을 고쳤다면 뒤 질문은 다시 확인
       setStage({ kind: 'thinking' });
-      d = { ...d, turns: await reconcile(draft.category!, draft.worry, turns, index + 1, draft.useAi) };
+      d = { ...d, turns: await reconcile(draft.category!, draft.worry, turns, index + 1, draft.useAi && ai) };
     }
     setDraft(d);
     // 이미 답한 뒤 질문이 남아 있으면 그 질문으로, 아니면 새 질문
@@ -152,7 +147,7 @@ export default function Talk({ draft, setDraft, onFinish }: Props) {
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitWorry(); }}
               />
               <div className="talk__meta">
-                <span>{draft.useAi ? '질문과 답장을 만드는 데만 쓰고, YouTube에는 보내지 않아요' : '이 브라우저 안에서만 읽혀요'}</span>
+                <span>{draft.useAi && ai ? '질문과 답장을 만드는 데만 쓰고, YouTube에는 보내지 않아요' : '이 브라우저 안에서만 읽혀요'}</span>
                 <span>{draft.worry.length} / 600</span>
               </div>
             </section>
@@ -162,42 +157,6 @@ export default function Talk({ draft, setDraft, onFinish }: Props) {
             <section className="talk__body talk__thinking" aria-live="polite">
               <span className="spinner spinner--ink" />
               <p>{stage.msg || '적어준 문장을 읽고 있어요…'}</p>
-            </section>
-          )}
-
-          {stage.kind === 'error' && (
-            <section className="talk__body talk__error" aria-live="assertive" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <div style={{ maxWidth: '440px', margin: '0 auto' }}>
-                <p style={{ color: 'var(--brass)', fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>
-                  [제미나이 호출] 실패
-                </p>
-                <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>질문을 불러오지 못했습니다</h2>
-                <p style={{ color: 'var(--sage-mute)', fontSize: '0.9375rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                  Gemini API 연결에 실패했습니다. 다시 시도하거나 기본 질문으로 계속 진행할 수 있어요.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                  <button type="button" className="btn btn--sage btn--lg" onClick={() => advance(stage.draft)}>
-                    다시 시도
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--line-dark btn--lg"
-                    onClick={() => {
-                      const q = localQuestion(stage.draft.category!, stage.draft.worry, stage.slot);
-                      setStage({ kind: 'q', index: stage.draft.turns.length, q });
-                    }}
-                  >
-                    기본 질문으로 진행
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--text"
-                    onClick={() => answer(stage.draft.turns.length, localQuestion(stage.draft.category!, stage.draft.worry, stage.slot), { kind: 'skip' })}
-                  >
-                    건너뛰기
-                  </button>
-                </div>
-              </div>
             </section>
           )}
 

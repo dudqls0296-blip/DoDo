@@ -9,7 +9,6 @@ import { getServerInfo } from '../lib/conversation';
 import { Footer, Header } from '../components/Header';
 import Vinyl from '../vinyl/Vinyl';
 import { SongButtons, useMusic } from '../music/Music';
-import { runGeminiAnalysis } from '../App';
 
 type Availability = 'embed' | 'link' | 'search';
 import TypeQuiz from '../components/TypeQuiz';
@@ -80,22 +79,11 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
   const song = SONGS.find((s) => s.id === rec.songId)!;
   const music = useMusic();
   const [quiz, setQuiz] = useState(false);
-  const [retrying, setRetrying] = useState(false);
   const mode = useAvailability(song);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const why = useMemo(() => rec.reasons?.[song.id] ?? reason(song, recInput(rec), R.phrase), [song.id, rec.type?.code, rec.reasons]);
   useEffect(() => { titleRef.current?.focus(); markShown(song.id); }, []);
   useEffect(() => { markShown(song.id); }, [song.id]);
-
-  const handleRetryGemini = async () => {
-    setRetrying(true);
-    try {
-      const { record } = await runGeminiAnalysis(rec);
-      onUpdate(record);
-    } finally {
-      setRetrying(false);
-    }
-  };
 
   const another = () => {
     const next = recommend(recInput(rec, [song.id]));
@@ -133,21 +121,7 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="letter__from">고민저장소에서 온 편지</p>
               <p className="letter__meta">{formatDate(rec.createdAt)} · {cat.label} · No. {rec.docNo}</p>
             </header>
-            <p className="badge">{R.ai ? 'Gemini 맞춤 분석 편지' : '기본 분석 결과'}</p>
-            {R.geminiFailed && (
-              <div className="care" style={{ margin: '0.75rem 0 1.25rem', border: '1px solid var(--brass)', background: 'rgba(184,154,99,0.12)' }}>
-                <p><b>[제미나이 호출 실패]</b> Gemini API 응답에 실패하여 기본 분석 결과가 표시되었습니다.</p>
-                <button
-                  type="button"
-                  className="btn btn--brass"
-                  style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }}
-                  disabled={retrying}
-                  onClick={handleRetryGemini}
-                >
-                  {retrying ? 'Gemini로 분석 중…' : 'Gemini로 다시 분석'}
-                </button>
-              </div>
-            )}
+            <p className="badge">{R.ai ? 'AI가 당신의 문장을 읽고 쓴 편지' : '답변 기반 요약'}</p>
             <h1 id="sum-title" ref={titleRef} tabIndex={-1} className="letter__title">지금 마음의 요약</h1>
             <figure className="quote">
               <blockquote><p>{R.quote}</p></blockquote>
@@ -169,15 +143,8 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="record__artist">{song.artist} <span>· {song.genre}</span></p>
               <p className="record__why">{why}</p>
               <div className="yt">
-                <div className="yt__frame is-on">
-                  <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${song.videoId}?rel=0&playsinline=1`}
-                    title={`${song.title} - ${song.artist}`}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                </div>
-                <p className="yt__src">공식 영상 · {song.channel} · 계정 로그인 없이 바로 감상할 수 있어요</p>
+                <SongButtons song={song} linkOnly={mode !== 'embed'} />
+                <p className="yt__src">공식 영상 · {song.channel} · 자동재생 없음 · 재생하면 화면 구석의 플레이어로 이어져요. 리포트를 보는 동안에도 끊기지 않아요.</p>
               </div>
               <div className="record__more">
                 <button type="button" className="btn btn--ghost-dark" onClick={another}>
@@ -229,16 +196,7 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
                     </p>
                   )}
                   {typeSong && (
-                    <div className="typecard__play">
-                      <div className="yt__frame is-on" style={{ marginTop: '0.75rem', maxWidth: '480px' }}>
-                        <iframe
-                          src={`https://www.youtube-nocookie.com/embed/${typeSong.videoId}?rel=0&playsinline=1`}
-                          title={`${typeSong.title} - ${typeSong.artist}`}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      </div>
-                    </div>
+                    <div className="typecard__play"><SongButtons song={typeSong} size="md" /></div>
                   )}
                   <button type="button" className="btn btn--text" onClick={() => setQuiz(true)}>다시 하기</button>
                 </div>
