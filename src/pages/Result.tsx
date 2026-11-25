@@ -121,7 +121,7 @@ export default function Result({ rec, saved, saveError, onUpdate, onSave, onRepo
               <p className="letter__from">고민저장소에서 온 편지</p>
               <p className="letter__meta">{formatDate(rec.createdAt)} · {cat.label} · No. {rec.docNo}</p>
             </header>
-            <p className="badge">{R.ai ? 'AI가 당신의 문장을 읽고 쓴 편지' : '답변 기반 요약'}</p>
+            <p className="badge">{R.ai ? 'AI가 당신의 문장을 읽고 쓴 편지' : '질문 종합 맞춤 분석 리포트'}</p>
             <h1 id="sum-title" ref={titleRef} tabIndex={-1} className="letter__title">지금 마음의 요약</h1>
             <figure className="quote">
               <blockquote><p>{R.quote}</p></blockquote>
