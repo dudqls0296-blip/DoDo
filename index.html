@@ -19,8 +19,11 @@
     <div id="root"></div>
     <!--DEV-ONLY-->
     <script>
-      // 파일을 더블클릭해서 열면(file://) Vite 소스는 실행되지 않으므로, 바로 실행되는 미리보기로 이동한다.
-      if (location.protocol === 'file:') location.replace('./preview/index.html' + location.hash);
+      // 이 파일은 Vite 개발 서버(npm run dev, localhost)에서만 동작하는 소스예요.
+      // 파일로 열었거나(file://) GitHub Pages 같은 정적 호스팅에서는 바로 실행되는 미리보기로 이동해요.
+      if (location.protocol === 'file:' || !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) {
+        location.replace('./preview/index.html'); // 처음 들어오면 항상 홈(음반 화면)으로
+      }
     </script>
     <!--/DEV-ONLY-->
     <noscript>고민저장소는 자바스크립트가 켜져 있어야 동작해요.</noscript>

@@ -3,13 +3,11 @@ import App from './App';
 import { MusicProvider } from './music/Music';
 import './styles.css';
 // 처음 들어올 때는 항상 홈(음반 화면)에서 시작한다.
-// 새로고침·뒤로가기는 보던 화면을 유지하고, 발표 자료 링크(#present)는 그대로 연다.
+// 새로고침(F5)해도 홈으로 돌아온다. 발표 자료(#present)만 보던 슬라이드를 유지한다.
 (() => {
   try {
-    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-    const kind = nav?.type || 'navigate';
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    if (kind === 'navigate' && !/^#present/.test(location.hash)) {
+    if (!/^#present/.test(location.hash)) {
       history.replaceState(null, '', location.pathname + location.search + '#home');
     }
     window.scrollTo(0, 0);
